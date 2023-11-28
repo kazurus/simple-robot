@@ -1,0 +1,12 @@
+[default.probe]
+protocol = "Swd"
+
+[default.general]
+# chip = "Nucleo-F401RE"
+chip = "STM32F401RE"
+
+[default.rtt]
+enabled = true
+
+[default.gdb]
+enabled = false
