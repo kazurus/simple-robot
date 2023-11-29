@@ -1,14 +1,22 @@
 [package]
 name = "simple-robot"
 version = "0.1.0"
-edition = "2021"
+edition = "2023"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# cortex-m = "0.7.7"
 cortex-m = { version = "0.7.7", features = ["critical-section-single-core"]}
 cortex-m-rt = "0.7.3"
-# rtt-target = { version = "0.4.0", features = ["cortex-m"] }
 rtt-target = "0.4.0"
 panic-rtt-target ={ version = "0.1.2", features = ["cortex-m"] }
+panic-halt = "0.2.0"
+embedded-hal = "0.2.7"
+
+# [dependencies.stm32f4]
+# version = "0.15.1"
+# features = ["stm32f401", "rt"]
+
+[dependencies.stm32f4xx-hal]
+version = "0.18.0"
+features = ["rt", "stm32f401"]
