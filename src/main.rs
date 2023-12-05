@@ -8,7 +8,7 @@ use cortex_m_rt::entry;
 use stm32f4xx_hal::{
     pac::{self},
     prelude::*,
-    timer::{Channel, Channel3},
+    timer::{Channel, Channel1, Channel2, Channel3, Polarity},
 };
 
 #[entry]
@@ -16,34 +16,58 @@ fn main() -> ! {
     rtt_init_print!();
     rprintln!("Start STM programm");
 
-    let mut peripherals = pac::Peripherals::take().unwrap();
+    let peripherals = pac::Peripherals::take().unwrap();
 
     let rcc = peripherals.RCC.constrain();
     let clocks = rcc.cfgr.use_hse(8.MHz()).freeze();
 
+    let gpioa = peripherals.GPIOA.split();
     let gpiob = peripherals.GPIOB.split();
-    let engine = Channel3::new(gpiob.pb10.into_alternate());
-    let mut engine_pwm = peripherals.TIM2.pwm_hz(engine, 2000.Hz(), &clocks);
+    let gpioc = peripherals.GPIOC.split();
 
-    let max_duty = engine_pwm.get_max_duty();
-    engine_pwm.set_duty(Channel::C3, max_duty / 2);
+    let engine = (
+        Channel1::new(gpioa.pa8).with_complementary(gpioa.pa7),
+        Channel2::new(gpioa.pa9).with_complementary(gpiob.pb0),
+    );
+
+    let mut engine = peripherals
+        .TIM1
+        .pwm_hz(engine, 2000.Hz(), &clocks)
+        .split();
+
+    let (mut engine_left, mut engine_right) = engine;
+
+    let max_duty = engine_left.get_max_duty();
+    engine_left.set_duty(max_duty / 2);
+    engine_left.set_polarity(Polarity::ActiveHigh);
+    engine_left.set_complementary_polarity(Polarity::ActiveHigh);
+
+    let mut engine_left_front = gpioa.pa0.into_push_pull_output();
+    let mut engine_left_rear = gpioa.pa1.into_push_pull_output();
+
+    let max_duty = engine_right.get_max_duty();
+    engine_right.set_duty(max_duty / 2);
+    engine_right.set_polarity(Polarity::ActiveHigh);
+    engine_right.set_complementary_polarity(Polarity::ActiveHigh);
+
+    let mut engine_right_front = gpioa.pa4.into_push_pull_output();
+    let mut engine_right_rear = gpioc.pc0.into_push_pull_output();
 
     let mut delay = peripherals.TIM3.delay_ms(&clocks);
 
-    let gpioa = peripherals.GPIOA.split();
-    let mut engine_a = gpioa.pa0.into_push_pull_output();
-
     loop {
-        engine_a.set_high();
+        engine_left_front.set_high();
+        engine_left_rear.set_low();
 
-        engine_pwm.set_period(500.Hz());
-        engine_pwm.enable(Channel::C3);
+        engine_right_front.set_high();
+        engine_right_rear.set_low();
+        
+        engine_left.set_duty(max_duty / 2);
+        engine_left.enable();
+        engine_left.enable_complementary();
 
-        let temp = engine_pwm.get_period();
-        rprintln!("{:?}", temp);
-
-        delay.delay_ms(10000_u32);
-        engine_pwm.disable(Channel::C3);
-        delay.delay_ms(10000_u32);
+        engine_right.set_duty(max_duty / 2);
+        engine_right.enable();
+        engine_right.enable_complementary();
     }
 }
