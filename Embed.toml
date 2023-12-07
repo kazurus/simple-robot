@@ -3,10 +3,13 @@ protocol = "Swd"
 
 [default.general]
 # chip = "Nucleo-F401RE"
-chip = "STM32F401RE"
+chip = "STM32F401RETx"
 
 [default.rtt]
 enabled = true
+channels = [
+    { up = 0, name = "defmt_rtt", format = "Defmt" },
+]
 
 [default.gdb]
 enabled = false
