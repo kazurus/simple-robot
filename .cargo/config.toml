@@ -1,4 +1,15 @@
 [target.'cfg(all(target_arch = "arm", target_os = "none"))']
+runner = "probe-rs --chip STM32F401RETx --defmt --connect_under_reset"
+# runner = "probe-run --chip stm32f401re"
 rustflags = [
+  "-C", "linker=flip-link",
   "-C", "link-arg=-Tlink.x",
+  "-C", "link-arg=-Tdefmt.x",
+  "-C", "link-arg=--nmagic",
 ]
+
+[build]
+target = "thumbv7em-none-eabihf"
+
+[env]
+DEFMT_LOG = "trace"

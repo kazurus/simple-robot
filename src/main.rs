@@ -1,73 +1,73 @@
 #![no_std]
 #![no_main]
+#![feature(type_alias_impl_trait)]
 
-use panic_rtt_target as _;
-use rtt_target::{rprintln, rtt_init_print};
-
+use defmt::{info, warn};
+use defmt_rtt as _;
+// use defmt_brtt as _;
+use panic_probe as _;
+// use panic_halt as _;
 use cortex_m_rt::entry;
-use stm32f4xx_hal::{
-    pac::{self},
-    prelude::*,
-    timer::{Channel, Channel1, Channel2, Channel3, Polarity},
-};
+use embassy_stm32::exti::ExtiInput;
+use embassy_stm32::gpio::{AnyPin, Input, Level, Output, OutputType, Pin, Pull, Speed};
+use embassy_stm32::time::khz;
+use embassy_stm32::timer::{Channel, OutputPolarity};
+use embassy_stm32::timer::complementary_pwm::{ComplementaryPwm, ComplementaryPwmPin};
+use embassy_stm32::timer::simple_pwm::PwmPin;
+use embassy_time::{Delay, Duration, Timer};
+use embedded_hal::blocking::delay::DelayMs;
 
 #[entry]
 fn main() -> ! {
-    rtt_init_print!();
-    rprintln!("Start STM programm");
+    // Initialize and create handle for devicer peripherals
+    let mut p = embassy_stm32::init(Default::default());
+    defmt::println!("Hello Error!");
 
-    let peripherals = pac::Peripherals::take().unwrap();
+    // Configure the Buzzer pin as an alternate and obtain handler.
+    // I will use PA9 that connects to Grove shield connector D8
+    // On the Nucleo FR401 PA9 connects to timer TIM1
+    let ch1 = PwmPin::new_ch1(p.PA8, OutputType::PushPull);
+    let ch1n = ComplementaryPwmPin::new_ch1(p.PA7, OutputType::PushPull);
+    let ch2 = PwmPin::new_ch2(p.PA9, OutputType::PushPull);
+    let ch2n = ComplementaryPwmPin::new_ch2(p.PB0, OutputType::PushPull);
 
-    let rcc = peripherals.RCC.constrain();
-    let clocks = rcc.cfgr.use_hse(8.MHz()).freeze();
-
-    let gpioa = peripherals.GPIOA.split();
-    let gpiob = peripherals.GPIOB.split();
-    let gpioc = peripherals.GPIOC.split();
-
-    let engine = (
-        Channel1::new(gpioa.pa8).with_complementary(gpioa.pa7),
-        Channel2::new(gpioa.pa9).with_complementary(gpiob.pb0),
+    let mut wheel_drive = ComplementaryPwm::new(
+        p.TIM1,
+        Some(ch1),
+        Some(ch1n),
+        Some(ch2),
+        Some(ch2n),
+        None,
+        None,
+        None,
+        None,
+        khz(2),
+        Default::default(),
     );
 
-    let mut engine = peripherals
-        .TIM1
-        .pwm_hz(engine, 2000.Hz(), &clocks)
-        .split();
+    let max_duty = wheel_drive.get_max_duty();
+    wheel_drive.set_dead_time(max_duty / 1024);
 
-    let (mut engine_left, mut engine_right) = engine;
+    wheel_drive.set_polarity(Channel::Ch1, OutputPolarity::ActiveHigh);
+    wheel_drive.set_duty(Channel::Ch1, 0);
+    let mut left_front_direction = Output::new(p.PA0, Level::High, Speed::High);
+    let mut right_front_direction = Output::new(p.PA1, Level::Low, Speed::High);
+    wheel_drive.enable(Channel::Ch1);
 
-    let max_duty = engine_left.get_max_duty();
-    engine_left.set_duty(max_duty / 2);
-    engine_left.set_polarity(Polarity::ActiveHigh);
-    engine_left.set_complementary_polarity(Polarity::ActiveHigh);
+    wheel_drive.set_polarity(Channel::Ch2, OutputPolarity::ActiveHigh);
+    wheel_drive.set_duty(Channel::Ch2, 0);
+    let mut left_rear_direction = Output::new(p.PA4, Level::High, Speed::High);
+    let mut right_rear_direction = Output::new(p.PC0, Level::Low, Speed::High);
+    wheel_drive.enable(Channel::Ch2);
 
-    let mut engine_left_front = gpioa.pa0.into_push_pull_output();
-    let mut engine_left_rear = gpioa.pa1.into_push_pull_output();
-
-    let max_duty = engine_right.get_max_duty();
-    engine_right.set_duty(max_duty / 2);
-    engine_right.set_polarity(Polarity::ActiveHigh);
-    engine_right.set_complementary_polarity(Polarity::ActiveHigh);
-
-    let mut engine_right_front = gpioa.pa4.into_push_pull_output();
-    let mut engine_right_rear = gpioc.pc0.into_push_pull_output();
-
-    let mut delay = peripherals.TIM3.delay_ms(&clocks);
-
+    // Application Loop
     loop {
-        engine_left_front.set_high();
-        engine_left_rear.set_low();
+        wheel_drive.set_duty(Channel::Ch1, max_duty / 4);
+        wheel_drive.set_duty(Channel::Ch2, max_duty / 4);
+        Delay.delay_ms(5000_u32);
 
-        engine_right_front.set_high();
-        engine_right_rear.set_low();
-        
-        engine_left.set_duty(max_duty / 2);
-        engine_left.enable();
-        engine_left.enable_complementary();
-
-        engine_right.set_duty(max_duty / 2);
-        engine_right.enable();
-        engine_right.enable_complementary();
+        wheel_drive.set_duty(Channel::Ch1, max_duty / 2);
+        wheel_drive.set_duty(Channel::Ch2, max_duty / 2);
+        Delay.delay_ms(5000_u32);
     }
 }
