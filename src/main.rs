@@ -20,7 +20,7 @@ use embassy_stm32::{bind_interrupts, timer::Channel, usart};
 // use embassy_time::Delay;
 // use embedded_hal::blocking::delay::DelayMs;
 use heapless::{String, Vec};
-use simple_robot::chassis::{Chassis, WheelComplementaryPinPair, WheelDrive, WheelPinPair};
+use simple_robot::chassis::{Chassis, WheelDrive, WheelPinPair};
 
 #[derive(Clone)]
 enum DirectionCommand {
@@ -93,7 +93,7 @@ async fn wait_bluetooth_commands(mut usart: Uart<'static, USART1, DMA2_CH7, DMA2
 }
 
 #[embassy_executor::task]
-async fn handle_direction_command(mut chassis: Chassis<'static, peripherals::PA0, peripherals::PA1>) {
+async fn handle_direction_command(mut chassis: Chassis<peripherals::PA0, peripherals::PA1>) {
     info!("Start command handler");
 
     let mut direction_sub = SHARED.subscriber().unwrap();
@@ -126,7 +126,7 @@ async fn main(spawner: Spawner) -> ! {
         Uart::new(p.USART1, p.PB7, p.PB6, Irqs, p.DMA2_CH7, p.DMA2_CH2, config).unwrap();
 
     let wheel_left = WheelPinPair::new(p.PA8, p.PA0);
-    let wheel_right = WheelComplementaryPinPair::new(p.PA7, p.PA1);
+    let wheel_right = WheelPinPair::new(p.PA7, p.PA1);
     let fwd = WheelDrive::new(wheel_left, wheel_right, Channel::Ch1);
     let chassis = Chassis::new(p.TIM1, fwd);
 

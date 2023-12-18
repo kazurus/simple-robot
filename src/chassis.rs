@@ -1,5 +1,3 @@
-use core::marker::PhantomData;
-
 use embassy_stm32::{
     gpio::{Level, Output, OutputType, Pin, Speed},
     peripherals::TIM1,
@@ -7,100 +5,59 @@ use embassy_stm32::{
     timer::{
         complementary_pwm::{ComplementaryPwm, ComplementaryPwmPin},
         simple_pwm::PwmPin,
-        CaptureCompare16bitInstance, Channel, Channel1ComplementaryPin, Channel1Pin,
-        ComplementaryCaptureCompare16bitInstance, OutputPolarity,
+        Channel, Channel1ComplementaryPin, Channel1Pin, OutputPolarity,
     },
     Peripheral,
 };
 
-pub struct WheelPinPair<DP, AP, I, CH1>
+pub struct WheelPinPair<DP, AP, CH>
 where
-    I: ComplementaryCaptureCompare16bitInstance + CaptureCompare16bitInstance,
-    CH1: Channel1Pin<I>,
-    DP: Peripheral<P = CH1>,
+    DP: Peripheral<P = CH>,
     AP: Pin,
 {
     pub digital_pin: DP,
     pub analog_pin: AP,
-    p1: PhantomData<I>,
 }
 
-impl<DP, AP, I, CH1> WheelPinPair<DP, AP, I, CH1>
+impl<DP, AP, CH> WheelPinPair<DP, AP, CH>
 where
-    I: ComplementaryCaptureCompare16bitInstance + CaptureCompare16bitInstance,
-    CH1: Channel1Pin<I>,
-    DP: Peripheral<P = CH1>,
+    DP: Peripheral<P = CH>,
     AP: Pin,
 {
     pub fn new(digital_pin: DP, analog_pin: AP) -> Self {
         Self {
             digital_pin,
             analog_pin,
-            p1: PhantomData,
         }
     }
 }
 
-pub struct WheelComplementaryPinPair<DP, AP, I, CH1C>
+pub struct WheelDrive<DP1, AP1, CH1, DP2, AP2, CH2>
 where
-    I: ComplementaryCaptureCompare16bitInstance + CaptureCompare16bitInstance,
-    CH1C: Channel1ComplementaryPin<I>,
-    DP: Peripheral<P = CH1C>,
-    AP: Pin,
+    DP1: Peripheral<P = CH1>,
+    AP1: Pin,
+    CH1: Pin,
+    DP2: Peripheral<P = CH2>,
+    AP2: Pin,
+    CH2: Pin,
 {
-    pub digital_pin: DP,
-    pub analog_pin: AP,
-    p1: PhantomData<I>,
-}
-
-impl<DP, AP, I, CH1C> WheelComplementaryPinPair<DP, AP, I, CH1C>
-where
-    I: ComplementaryCaptureCompare16bitInstance + CaptureCompare16bitInstance,
-    CH1C: Channel1ComplementaryPin<I>,
-    DP: Peripheral<P = CH1C>,
-    AP: Pin,
-{
-    pub fn new(digital_pin: DP, analog_pin: AP) -> Self {
-        Self {
-            digital_pin,
-            analog_pin,
-            p1: PhantomData,
-        }
-    }
-}
-
-pub struct WheelDrive<K, C, T, U, L, H, Z, X>
-where
-    L: ComplementaryCaptureCompare16bitInstance + CaptureCompare16bitInstance,
-    H: Channel1Pin<L>,
-    K: Peripheral<P = H>,
-    C: Pin,
-    Z: ComplementaryCaptureCompare16bitInstance + CaptureCompare16bitInstance,
-    X: Channel1ComplementaryPin<Z>,
-    T: Peripheral<P = X>,
-    U: Pin,
-{
-    pub wheel_left: WheelPinPair<K, C, L, H>,
-    pub wheel_right: WheelComplementaryPinPair<T, U, Z, X>,
+    pub wheel_left: WheelPinPair<DP1, AP1, CH1>,
+    pub wheel_right: WheelPinPair<DP2, AP2, CH2>,
     pub channel: Channel,
-    // pub wheel_left_direction: Output<'a, C>,
-    // pub wheel_right_direction: Output<'a, U>,
 }
 
-impl<K, C, T, U, L, H, Z, X> WheelDrive<K, C, T, U, L, H, Z, X>
+impl<DP1, AP1, CH1, DP2, AP2, CH2> WheelDrive<DP1, AP1, CH1, DP2, AP2, CH2>
 where
-    L: ComplementaryCaptureCompare16bitInstance + CaptureCompare16bitInstance,
-    H: Channel1Pin<L>,
-    K: Peripheral<P = H>,
-    C: Pin,
-    Z: ComplementaryCaptureCompare16bitInstance + CaptureCompare16bitInstance,
-    X: Channel1ComplementaryPin<Z>,
-    T: Peripheral<P = X>,
-    U: Pin,
+    DP1: Peripheral<P = CH1>,
+    AP1: Pin,
+    CH1: Pin,
+    DP2: Peripheral<P = CH2>,
+    AP2: Pin,
+    CH2: Pin,
 {
     pub fn new(
-        wheel_left: WheelPinPair<K, C, L, H>,
-        wheel_right: WheelComplementaryPinPair<T, U, Z, X>,
+        wheel_left: WheelPinPair<DP1, AP1, CH1>,
+        wheel_right: WheelPinPair<DP2, AP2, CH2>,
         channel: Channel,
     ) -> Self {
         Self {
@@ -111,38 +68,33 @@ where
     }
 }
 
-pub struct Chassis<'a, C, U>
+pub struct Chassis<AP1, AP2>
 where
-    C: Pin,
-    U: Pin,
+    AP1: Pin,
+    AP2: Pin,
 {
     pub fwd_ch: Channel,
-    pub fwd_left_direction: Output<'a, C>,
-    pub fwd_right_direction: Output<'a, U>,
-    pub chassis: ComplementaryPwm<'a, TIM1>,
+    pub fwd_left_direction: Output<'static, AP1>,
+    pub fwd_right_direction: Output<'static, AP2>,
+    pub chassis: ComplementaryPwm<'static, TIM1>,
 }
 
-impl<'a, C, U> Chassis<'a, C, U>
+impl<AP1, AP2> Chassis<AP1, AP2>
 where
-    C: Pin,
-    U: Pin,
+    AP1: Pin,
+    AP2: Pin,
 {
     pub fn new<
-        L: ComplementaryCaptureCompare16bitInstance + CaptureCompare16bitInstance,
-        H: Channel1Pin<L> + Channel1Pin<TIM1>,
-        K: Peripheral<P = H> + 'a,
-        Z: ComplementaryCaptureCompare16bitInstance + CaptureCompare16bitInstance,
-        X: Channel1ComplementaryPin<Z> + Channel1ComplementaryPin<TIM1>,
-        T: Peripheral<P = X> + 'a,
+        DP1: Peripheral<P = CH1> + 'static,
+        CH1: Channel1Pin<TIM1>,
+        DP2: Peripheral<P = CH2> + 'static,
+        CH2: Channel1ComplementaryPin<TIM1>,
     >(
         tim1: TIM1,
-        fwd: WheelDrive<K, C, T, U, L, H, Z, X>,
+        fwd: WheelDrive<DP1, AP1, CH1, DP2, AP2, CH2>,
     ) -> Self {
-        let ch1 = PwmPin::<TIM1, _>::new_ch1(fwd.wheel_left.digital_pin, OutputType::PushPull);
-        let ch1n = ComplementaryPwmPin::<TIM1, _>::new_ch1(
-            fwd.wheel_right.digital_pin,
-            OutputType::PushPull,
-        );
+        let ch1 = PwmPin::new_ch1(fwd.wheel_left.digital_pin, OutputType::PushPull);
+        let ch1n = ComplementaryPwmPin::new_ch1(fwd.wheel_right.digital_pin, OutputType::PushPull);
 
         let mut chassis = ComplementaryPwm::new(
             tim1,
