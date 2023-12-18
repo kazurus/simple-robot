@@ -167,7 +167,6 @@ where
         chassis.set_duty(fwd.channel, 0);
         let fwd_left_direction = Output::new(fwd.wheel_left.analog_pin, Level::High, Speed::Low);
         let fwd_right_direction = Output::new(fwd.wheel_right.analog_pin, Level::Low, Speed::Low);
-        chassis.enable(fwd.channel);
 
         // let ch2 = PwmPin::new_ch2(p.PA9, OutputType::PushPull);
         // let ch2n = ComplementaryPwmPin::new_ch2(p.PB0, OutputType::PushPull);
