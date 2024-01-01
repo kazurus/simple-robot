@@ -9,7 +9,7 @@ use defmt::{info, println};
 use defmt_rtt as _;
 
 use embassy_executor::Spawner;
-use embassy_stm32::gpio::{Input, Level, Output, Pull, Speed};
+use embassy_stm32::gpio::{Input, Level, Output, Pull, Speed, AnyPin};
 // use cortex_m_rt::entry;
 use embassy_stm32::peripherals::{self, DMA2_CH2, DMA2_CH7, PC8, PC9, USART1};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
@@ -120,9 +120,12 @@ async fn handle_direction_command(mut chassis: Chassis<peripherals::PA0, periphe
 
 #[embassy_executor::task]
 async fn handle_distance_update(
-    mut sonar_trig: Output<'static, PC8>,
-    sonar_echo: Input<'static, PC9>,
+    sonar_output_pin: AnyPin,
+    sonar_input_pin: AnyPin,
 ) {
+    let mut sonar_trig = Output::new(sonar_output_pin, Level::Low, Speed::Low);
+    let sonar_echo = Input::new(sonar_input_pin, Pull::None);
+
     loop {
         sonar_trig.set_low();
         Timer::after_micros(5).await;
@@ -188,9 +191,6 @@ async fn main(spawner: Spawner) -> ! {
         // Uart::new(p.USART6, p.PC7, p.PC6, Irqs, p.DMA1_CH6, p.DMA1_CH5, config).unwrap();
         Uart::new(p.USART1, p.PB7, p.PB6, Irqs, p.DMA2_CH7, p.DMA2_CH2, config).unwrap();
 
-    let sonar_trig = Output::new(p.PC8, Level::Low, Speed::Low);
-    let sonar_echo = Input::new(p.PC9, Pull::None);
-
     let wheel_left = WheelPinPair::new(p.PA8, p.PA0);
     let wheel_right = WheelPinPair::new(p.PA7, p.PA1);
     let fwd = WheelDrive::new(wheel_left, wheel_right, Channel::Ch1);
@@ -205,7 +205,7 @@ async fn main(spawner: Spawner) -> ! {
     spawner.spawn(handle_direction_command(chassis)).unwrap();
     spawner.spawn(wait_bluetooth_commands(usart)).unwrap();
     spawner
-        .spawn(handle_distance_update(sonar_trig, sonar_echo))
+        .spawn(handle_distance_update(p.PC8.into(), p.PC9.into()))
         .unwrap();
 
     let mut direction_sub = SHARED.subscriber().unwrap();
