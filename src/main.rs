@@ -36,7 +36,15 @@ enum DirectionCommand {
     Unknown,
 }
 
+#[derive(Clone, PartialEq)]
+enum ControlMode {
+    AutoPilot,
+    Manual,
+}
+
 static SHARED: PubSubChannel<ThreadModeRawMutex, DirectionCommand, 1, 2, 2> = PubSubChannel::new();
+static CONTROL_MODE: Mutex<ThreadModeRawMutex, RefCell<ControlMode>> =
+    Mutex::new(RefCell::new(ControlMode::Manual));
 static CURRENT_DIRECTION: Mutex<ThreadModeRawMutex, RefCell<DirectionCommand>> =
     Mutex::new(RefCell::new(DirectionCommand::Stop));
 static DISTANCE: PubSubChannel<ThreadModeRawMutex, u64, 1, 2, 2> = PubSubChannel::new();
@@ -77,7 +85,7 @@ async fn wait_bluetooth_commands(mut usart: Uart<'static, USART1, DMA2_CH7, DMA2
                     let msg = String::from_utf8(msg_vec_copy).unwrap();
                     info!("Value str: {:?}", msg.as_str());
 
-                    let command: DirectionCommand = match msg.as_str() {
+                    let command = match msg.as_str() {
                         "f" => DirectionCommand::Forward,
                         "b" => DirectionCommand::Back,
                         "l" => DirectionCommand::Left,
@@ -86,6 +94,12 @@ async fn wait_bluetooth_commands(mut usart: Uart<'static, USART1, DMA2_CH7, DMA2
                         _ => DirectionCommand::Unknown,
                     };
 
+                    let control_mode = match msg.as_str() {
+                        "a" => ControlMode::AutoPilot,
+                        _ => ControlMode::Manual,
+                    };
+
+                    CONTROL_MODE.lock().await.borrow_mut().replace(control_mode);
                     SHARED.publish_immediate(command);
                 } else {
                     msg_vec.extend_from_slice(&buf).unwrap();
@@ -154,6 +168,12 @@ async fn handle_autopilot_mode() {
 
     loop {
         let distance_cm = distance_sub.next_message_pure().await;
+
+        let control_mode = CONTROL_MODE.lock().await.borrow().clone();
+        if control_mode != ControlMode::AutoPilot {
+            continue;
+        }
+
         let direction = CURRENT_DIRECTION.lock().await.borrow().clone();
 
         let new_direction = match direction {
