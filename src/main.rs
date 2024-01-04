@@ -39,6 +39,7 @@ enum DirectionCommand {
 static SHARED: PubSubChannel<ThreadModeRawMutex, DirectionCommand, 1, 2, 2> = PubSubChannel::new();
 static CURRENT_DIRECTION: Mutex<ThreadModeRawMutex, RefCell<DirectionCommand>> =
     Mutex::new(RefCell::new(DirectionCommand::Stop));
+static DISTANCE: PubSubChannel<ThreadModeRawMutex, u64, 1, 2, 2> = PubSubChannel::new();
 
 bind_interrupts!(struct Irqs {
     USART1 => usart::InterruptHandler<USART1>;
@@ -119,7 +120,7 @@ async fn handle_direction_command(mut chassis: Chassis<peripherals::PA0, periphe
 }
 
 #[embassy_executor::task]
-async fn handle_distance_update(sonar_output_pin: AnyPin, sonar_input_pin: AnyPin) {
+async fn update_distance(sonar_output_pin: AnyPin, sonar_input_pin: AnyPin) {
     let mut sonar_trig = Output::new(sonar_output_pin, Level::Low, Speed::Low);
     let sonar_echo = Input::new(sonar_input_pin, Pull::None);
 
@@ -141,9 +142,19 @@ async fn handle_distance_update(sonar_output_pin: AnyPin, sonar_input_pin: AnyPi
 
         info!("Distance cm: {:?}", distance_cm);
 
-        let direction_lock = CURRENT_DIRECTION.lock().await;
-        let direction = direction_lock.borrow().clone();
-        drop(direction_lock);
+        DISTANCE.publish_immediate(distance_cm);
+
+        Timer::after_secs(1).await;
+    }
+}
+
+#[embassy_executor::task]
+async fn handle_autopilot_mode() {
+    let mut distance_sub = DISTANCE.subscriber().unwrap();
+
+    loop {
+        let distance_cm = distance_sub.next_message_pure().await;
+        let direction = CURRENT_DIRECTION.lock().await.borrow().clone();
 
         let new_direction = match direction {
             DirectionCommand::Forward if distance_cm < 50 => {
@@ -168,7 +179,7 @@ async fn handle_distance_update(sonar_output_pin: AnyPin, sonar_input_pin: AnyPi
         };
 
         match new_direction {
-            DirectionCommand::Unknown => Timer::after_secs(1).await,
+            DirectionCommand::Unknown => (),
             new_dir => {
                 SHARED.publish_immediate(new_dir);
                 Timer::after_secs(3).await;
@@ -204,8 +215,9 @@ async fn main(spawner: Spawner) -> ! {
     spawner.spawn(handle_direction_command(chassis)).unwrap();
     spawner.spawn(wait_bluetooth_commands(usart)).unwrap();
     spawner
-        .spawn(handle_distance_update(p.PC8.into(), p.PC9.into()))
+        .spawn(update_distance(p.PC8.into(), p.PC9.into()))
         .unwrap();
+    spawner.spawn(handle_autopilot_mode()).unwrap();
 
     let mut direction_sub = SHARED.subscriber().unwrap();
     // Application Loop
