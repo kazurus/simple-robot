@@ -11,7 +11,7 @@ use defmt_rtt as _;
 use embassy_executor::Spawner;
 use embassy_stm32::gpio::{AnyPin, Input, Level, Output, Pull, Speed};
 // use cortex_m_rt::entry;
-use embassy_stm32::peripherals::{self, DMA2_CH2, DMA2_CH7, PC8, PC9, USART1};
+use embassy_stm32::peripherals::{DMA2_CH2, DMA2_CH7, PA0, PA1, PA4, PC0, USART1};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_sync::pubsub::{PubSubBehavior, PubSubChannel};
@@ -114,7 +114,7 @@ async fn wait_bluetooth_commands(mut usart: Uart<'static, USART1, DMA2_CH7, DMA2
 }
 
 #[embassy_executor::task]
-async fn handle_direction_command(mut chassis: Chassis<peripherals::PA0, peripherals::PA1>) {
+async fn handle_direction_command(mut chassis: Chassis<PA0, PA1, PA4, PC0>) {
     info!("Start command handler");
 
     let mut direction_sub = SHARED.subscriber().unwrap();
@@ -221,16 +221,13 @@ async fn main(spawner: Spawner) -> ! {
         // Uart::new(p.USART6, p.PC7, p.PC6, Irqs, p.DMA1_CH6, p.DMA1_CH5, config).unwrap();
         Uart::new(p.USART1, p.PB7, p.PB6, Irqs, p.DMA2_CH7, p.DMA2_CH2, config).unwrap();
 
-    let wheel_left = WheelPinPair::new(p.PA8, p.PA0);
-    let wheel_right = WheelPinPair::new(p.PA7, p.PA1);
-    let fwd = WheelDrive::new(wheel_left, wheel_right, Channel::Ch1);
-    let chassis = Chassis::new(p.TIM1, fwd);
-
-    // wheel_drive.set_polarity(Channel::Ch2, OutputPolarity::ActiveHigh);
-    // wheel_drive.set_duty(Channel::Ch2, 0);
-    // let mut left_rear_direction = Output::new(p.PA4, Level::High, Speed::High);
-    // let mut right_rear_direction = Output::new(p.PC0, Level::Low, Speed::High);
-    // wheel_drive.enable(Channel::Ch2);
+    let wheel_forwart_left = WheelPinPair::new(p.PA8, p.PA0);
+    let wheel_forward_right = WheelPinPair::new(p.PA7, p.PA1);
+    let fwd = WheelDrive::new(wheel_forwart_left, wheel_forward_right, Channel::Ch1);
+    let wheel_rear_left = WheelPinPair::new(p.PA9, p.PA4);
+    let wheel_rear_right = WheelPinPair::new(p.PB0, p.PC0);
+    let rwd = WheelDrive::new(wheel_rear_left, wheel_rear_right, Channel::Ch2);
+    let chassis = Chassis::new(p.TIM1, fwd, rwd);
 
     spawner.spawn(handle_direction_command(chassis)).unwrap();
     spawner.spawn(wait_bluetooth_commands(usart)).unwrap();
