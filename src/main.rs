@@ -114,7 +114,7 @@ async fn wait_bluetooth_commands(mut usart: Uart<'static, USART1, DMA2_CH7, DMA2
 }
 
 #[embassy_executor::task]
-async fn handle_direction_command(mut chassis: Chassis<PA0, PA1, PA4, PC0>) {
+async fn handle_direction_command(mut chassis: Chassis) {
     info!("Start command handler");
 
     let mut direction_sub = SHARED.subscriber().unwrap();
@@ -221,11 +221,11 @@ async fn main(spawner: Spawner) -> ! {
         // Uart::new(p.USART6, p.PC7, p.PC6, Irqs, p.DMA1_CH6, p.DMA1_CH5, config).unwrap();
         Uart::new(p.USART1, p.PB7, p.PB6, Irqs, p.DMA2_CH7, p.DMA2_CH2, config).unwrap();
 
-    let wheel_forwart_left = WheelPinPair::new(p.PA8, p.PA0);
-    let wheel_forward_right = WheelPinPair::new(p.PA7, p.PA1);
+    let wheel_forwart_left = WheelPinPair::new(p.PA8, p.PA0.degrade());
+    let wheel_forward_right = WheelPinPair::new(p.PA7, p.PA1.degrade());
     let fwd = WheelDrive::new(wheel_forwart_left, wheel_forward_right, Channel::Ch1);
-    let wheel_rear_left = WheelPinPair::new(p.PA9, p.PA4);
-    let wheel_rear_right = WheelPinPair::new(p.PB0, p.PC0);
+    let wheel_rear_left = WheelPinPair::new(p.PA9, p.PA4.degrade());
+    let wheel_rear_right = WheelPinPair::new(p.PB0, p.PC0.degrade());
     let rwd = WheelDrive::new(wheel_rear_left, wheel_rear_right, Channel::Ch2);
     let chassis = Chassis::new(p.TIM1, fwd, rwd);
 

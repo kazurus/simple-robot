@@ -1,11 +1,12 @@
 use embassy_stm32::{
-    gpio::{Level, Output, OutputType, Pin, Speed},
+    gpio::{AnyPin, Level, Output, OutputType, Pin, Speed},
     peripherals::TIM1,
     time::khz,
     timer::{
         complementary_pwm::{ComplementaryPwm, ComplementaryPwmPin},
         simple_pwm::PwmPin,
-        Channel, Channel1ComplementaryPin, Channel1Pin, Channel2Pin, OutputPolarity, Channel2ComplementaryPin,
+        Channel, Channel1ComplementaryPin, Channel1Pin, Channel2ComplementaryPin, Channel2Pin,
+        OutputPolarity,
     },
     Peripheral,
 };
@@ -68,29 +69,17 @@ where
     }
 }
 
-pub struct Chassis<AP1, AP1N, AP2, AP2N>
-where
-    AP1: Pin,
-    AP1N: Pin,
-    AP2: Pin,
-    AP2N: Pin,
-{
+pub struct Chassis {
     pub fwd_ch: Channel,
-    pub fwd_left_direction: Output<'static, AP1>,
-    pub fwd_right_direction: Output<'static, AP1N>,
+    pub fwd_left_direction: Output<'static, AnyPin>,
+    pub fwd_right_direction: Output<'static, AnyPin>,
     pub rwd_ch: Channel,
-    pub rwd_left_direction: Output<'static, AP2>,
-    pub rwd_right_direction: Output<'static, AP2N>,
+    pub rwd_left_direction: Output<'static, AnyPin>,
+    pub rwd_right_direction: Output<'static, AnyPin>,
     pub chassis: ComplementaryPwm<'static, TIM1>,
 }
 
-impl<AP1, AP1N, AP2, AP2N> Chassis<AP1, AP1N, AP2, AP2N>
-where
-    AP1: Pin,
-    AP1N: Pin,
-    AP2: Pin,
-    AP2N: Pin,
-{
+impl Chassis {
     pub fn new<
         CH1: Channel1Pin<TIM1>,
         DP1: Peripheral<P = CH1> + 'static,
@@ -102,8 +91,8 @@ where
         DP2N: Peripheral<P = CH2N> + 'static,
     >(
         tim1: TIM1,
-        fwd: WheelDrive<DP1, AP1, CH1, DP1N, AP1N, CH1N>,
-        rwd: WheelDrive<DP2, AP2, CH2, DP2N, AP2N, CH2N>,
+        fwd: WheelDrive<DP1, AnyPin, CH1, DP1N, AnyPin, CH1N>,
+        rwd: WheelDrive<DP2, AnyPin, CH2, DP2N, AnyPin, CH2N>,
     ) -> Self {
         let ch1 = PwmPin::new_ch1(fwd.wheel_left.digital_pin, OutputType::PushPull);
         let ch1n = ComplementaryPwmPin::new_ch1(fwd.wheel_right.digital_pin, OutputType::PushPull);
