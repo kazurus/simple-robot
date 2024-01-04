@@ -9,7 +9,7 @@ use defmt::{info, println};
 use defmt_rtt as _;
 
 use embassy_executor::Spawner;
-use embassy_stm32::gpio::{Input, Level, Output, Pull, Speed, AnyPin};
+use embassy_stm32::gpio::{AnyPin, Input, Level, Output, Pull, Speed};
 // use cortex_m_rt::entry;
 use embassy_stm32::peripherals::{self, DMA2_CH2, DMA2_CH7, PC8, PC9, USART1};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
@@ -119,10 +119,7 @@ async fn handle_direction_command(mut chassis: Chassis<peripherals::PA0, periphe
 }
 
 #[embassy_executor::task]
-async fn handle_distance_update(
-    sonar_output_pin: AnyPin,
-    sonar_input_pin: AnyPin,
-) {
+async fn handle_distance_update(sonar_output_pin: AnyPin, sonar_input_pin: AnyPin) {
     let mut sonar_trig = Output::new(sonar_output_pin, Level::Low, Speed::Low);
     let sonar_echo = Input::new(sonar_input_pin, Pull::None);
 
@@ -161,7 +158,9 @@ async fn handle_distance_update(
                     DirectionCommand::Right
                 }
             }
-            DirectionCommand::Left | DirectionCommand::Right if distance_cm > 50 => {
+            DirectionCommand::Left | DirectionCommand::Right | DirectionCommand::Stop
+                if distance_cm > 50 =>
+            {
                 info!("Should go forward");
                 DirectionCommand::Forward
             }
