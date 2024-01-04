@@ -126,15 +126,6 @@ impl Chassis {
         let rwd_left_direction = Output::new(rwd.wheel_left.analog_pin, Level::High, Speed::Low);
         let rwd_right_direction = Output::new(rwd.wheel_right.analog_pin, Level::Low, Speed::Low);
 
-        // let ch2 = PwmPin::new_ch2(p.PA9, OutputType::PushPull);
-        // let ch2n = ComplementaryPwmPin::new_ch2(p.PB0, OutputType::PushPull);
-
-        // wheel_drive.set_polarity(Channel::Ch2, OutputPolarity::ActiveHigh);
-        // wheel_drive.set_duty(Channel::Ch2, 0);
-        // let mut left_rear_direction = Output::new(p.PA4, Level::High, Speed::High);
-        // let mut right_rear_direction = Output::new(p.PC0, Level::Low, Speed::High);
-        // wheel_drive.enable(Channel::Ch2);
-        //
         Self {
             fwd_ch: fwd.channel,
             fwd_left_direction,
