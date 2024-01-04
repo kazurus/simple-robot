@@ -4,26 +4,27 @@
 
 use core::borrow::BorrowMut;
 use core::cell::RefCell;
+use heapless::{String, Vec};
 
 use defmt::{info, println};
 use defmt_rtt as _;
+use panic_probe as _;
 
 use embassy_executor::Spawner;
-use embassy_stm32::gpio::{AnyPin, Input, Level, Output, Pull, Speed};
-// use cortex_m_rt::entry;
-use embassy_stm32::peripherals::{DMA2_CH2, DMA2_CH7, PA0, PA1, PA4, PC0, USART1};
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
-use embassy_sync::mutex::Mutex;
-use embassy_sync::pubsub::{PubSubBehavior, PubSubChannel};
+use embassy_stm32::{
+    bind_interrupts,
+    gpio::{AnyPin, Input, Level, Output, Pin, Pull, Speed},
+    peripherals::{DMA2_CH2, DMA2_CH7, USART1},
+    timer::Channel,
+    usart::{self, Config, Uart},
+};
+use embassy_sync::{
+    blocking_mutex::raw::ThreadModeRawMutex,
+    mutex::Mutex,
+    pubsub::{PubSubBehavior, PubSubChannel},
+};
 use embassy_time::{Instant, Timer};
-use panic_probe as _;
-// use panic_halt as _;
-use embassy_stm32::usart::{Config, Uart};
-// use embassy_stm32::dma::NoDma;
-use embassy_stm32::{bind_interrupts, timer::Channel, usart};
-// use embassy_time::Delay;
-// use embedded_hal::blocking::delay::DelayMs;
-use heapless::{String, Vec};
+
 use simple_robot::chassis::{Chassis, WheelDrive, WheelPinPair};
 
 #[derive(Clone)]
